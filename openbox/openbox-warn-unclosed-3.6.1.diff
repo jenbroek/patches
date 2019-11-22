@@ -1,0 +1,67 @@
+diff --git a/openbox/actions/exit.c b/openbox/actions/exit.c
+index 2d9fc633..35ba67cf 100644
+--- a/openbox/actions/exit.c
++++ b/openbox/actions/exit.c
+@@ -1,11 +1,13 @@
+ #include "openbox/actions.h"
+ #include "openbox/openbox.h"
++#include "openbox/client.h"
+ #include "openbox/prompt.h"
+ #include "openbox/session.h"
+ #include "gettext.h"
+ 
+ typedef struct {
+     gboolean prompt;
++    gboolean warn;
+ } Options;
+ 
+ static gpointer setup_func(xmlNodePtr node);
+@@ -25,10 +27,14 @@ static gpointer setup_func(xmlNodePtr node)
+ 
+     o = g_slice_new0(Options);
+     o->prompt = TRUE;
++    o->warn = FALSE;
+ 
+     if ((n = obt_xml_find_node(node, "prompt")))
+         o->prompt = obt_xml_node_bool(n);
+ 
++    if ((n = obt_xml_find_node(node, "warn")))
++        o->warn = obt_xml_node_bool(n);
++
+     return o;
+ }
+ 
+@@ -62,9 +68,21 @@ static void prompt_cleanup(ObPrompt *p, gpointer data)
+ static gboolean run_func(ObActionsData *data, gpointer options)
+ {
+     Options *o = options;
++    ObPrompt *p;
++    GList *it;
++    int wins = 0;
++
++    for (it = client_list; it; it = g_list_next(it)) {
++        if (((ObClient*)it->data)->type == OB_CLIENT_TYPE_NORMAL)
++            wins++;
++    }
+ 
+-    if (o->prompt) {
+-        ObPrompt *p;
++    if (o->warn && wins) {
++        p = prompt_show_message(_("There are unclosed windows!"),
++                                _("Unclosed Windows"),
++                                _("Close"));
++        prompt_show(p, NULL, FALSE);
++    } else if (o->prompt) {
+         ObPromptAnswer answers[] = {
+             { _("Cancel"), 0 },
+             { _("Exit"), 1 }
+@@ -80,8 +98,7 @@ static gboolean run_func(ObActionsData *data, gpointer options)
+                            answers, 2, 0, 0, prompt_cb, prompt_cleanup, NULL);
+ 
+         prompt_show(p, NULL, FALSE);
+-    }
+-    else
++    } else
+         do_exit();
+ 
+     return FALSE;

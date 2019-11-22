@@ -1,0 +1,112 @@
+diff --git a/src/grab.c b/src/grab.c
+index bf031f9..d28e363 100644
+--- a/src/grab.c
++++ b/src/grab.c
+@@ -79,7 +79,7 @@ void grab_key_button_checked(xcb_keycode_t keycode, xcb_button_t button, uint16_
+ 	if (button == XCB_NONE)
+ 		err = xcb_request_check(dpy, xcb_grab_key_checked(dpy, true, root, modfield, keycode, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_SYNC));
+ 	else
+-		err = xcb_request_check(dpy, xcb_grab_button_checked(dpy, true, root, XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_NONE, button, modfield));
++		err = xcb_request_check(dpy, xcb_grab_button_checked(dpy, true, root, XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_BUTTON_MOTION, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE, XCB_NONE, button, modfield));
+ 	unsigned int value = (button == XCB_NONE ? keycode : button);
+ 	char *type = (button == XCB_NONE ? "key" : "button");
+ 	if (err != NULL) {
+diff --git a/src/parse.c b/src/parse.c
+index d5af64b..987aa63 100644
+--- a/src/parse.c
++++ b/src/parse.c
+@@ -2669,6 +2669,10 @@ bool parse_chain(char *string, chain_t *chain)
+ 				event_type = XCB_KEY_RELEASE;
+ 				offset++;
+ 			}
++			if (name[offset] == MOTION_PREFIX) {
++				event_type = XCB_MOTION_NOTIFY;
++				offset++;
++			}
+ 			char *nm = name + offset;
+ 			if (!parse_modifier(nm, &modfield) && !parse_keysym(nm, &keysym) && !parse_button(nm, &button)) {
+ 				warn("Unknown keysym name: '%s'.\n", nm);
+diff --git a/src/parse.h b/src/parse.h
+index 8af9026..d18c24a 100644
+--- a/src/parse.h
++++ b/src/parse.h
+@@ -28,6 +28,7 @@
+ #include "sxhkd.h"
+
+ #define RELEASE_PREFIX       '@'
++#define MOTION_PREFIX        '!'
+ #define REPLAY_PREFIX        '~'
+ #define START_COMMENT        '#'
+ #define MAGIC_INHIBIT        '\\'
+diff --git a/src/sxhkd.c b/src/sxhkd.c
+index bddd64e..80bc025 100644
+--- a/src/sxhkd.c
++++ b/src/sxhkd.c
+@@ -44,6 +44,7 @@ int main(int argc, char *argv[])
+ 	config_path = NULL;
+ 	mapping_count = 0;
+ 	timeout = TIMEOUT;
++	last_motion_time = 0;
+ 	grabbed = false;
+ 	redir_fd = -1;
+ 	abort_keysym = ESCAPE_KEYSYM;
+@@ -146,6 +147,9 @@ int main(int argc, char *argv[])
+ 					case XCB_BUTTON_RELEASE:
+ 						key_button_event(evt, event_type);
+ 						break;
++					case XCB_MOTION_NOTIFY:
++						motion_notify(evt, event_type);
++						break;
+ 					case XCB_MAPPING_NOTIFY:
+ 						mapping_notify(evt);
+ 						break;
+@@ -233,6 +237,29 @@ void key_button_event(xcb_generic_event_t *evt, uint8_t event_type)
+ 	xcb_flush(dpy);
+ }
+
++void motion_notify(xcb_generic_event_t *evt, uint8_t event_type)
++{
++	xcb_motion_notify_event_t *e = (xcb_motion_notify_event_t *) evt;
++	PRINTF("motion notify %X %X %u %i %i\n", e->child, e->detail, e->state, e->root_x, e->root_y);
++	if (e->time - last_motion_time < 8)
++		return;
++	last_motion_time = e->time;
++	uint16_t lockfield = num_lock | caps_lock | scroll_lock;
++	uint16_t buttonfield = e->state >> 8;
++	uint16_t modfield = e->state & ~lockfield & MOD_STATE_FIELD;
++	xcb_button_t button = 1;
++	while (~buttonfield & 1 && button < 5) {
++		buttonfield = buttonfield >> 1;
++		button++;
++	}
++	hotkey_t *hk = find_hotkey(XCB_NO_SYMBOL, button, modfield, event_type, NULL);
++	if (hk != NULL) {
++		char command[2 * MAXLEN];
++		snprintf(command, sizeof(command), hk->command, e->root_x, e->root_y);
++		run(command, hk->sync);
++	}
++}
++
+ void mapping_notify(xcb_generic_event_t *evt)
+ {
+ 	if (!mapping_count)
+diff --git a/src/sxhkd.h b/src/sxhkd.h
+index a8e0228..258135c 100644
+--- a/src/sxhkd.h
++++ b/src/sxhkd.h
+@@ -56,6 +56,7 @@ FILE *status_fifo;
+ char progress[3 * MAXLEN];
+ int mapping_count;
+ int timeout;
++xcb_timestamp_t last_motion_time;
+
+ hotkey_t *hotkeys_head, *hotkeys_tail;
+ bool running, grabbed, toggle_grab, reload, bell, chained, locked;
+@@ -67,6 +68,7 @@ uint16_t caps_lock;
+ uint16_t scroll_lock;
+
+ void key_button_event(xcb_generic_event_t *evt, uint8_t event_type);
++void motion_notify(xcb_generic_event_t *evt, uint8_t event_type);
+ void mapping_notify(xcb_generic_event_t *evt);
+ void setup(void);
+ void cleanup(void);

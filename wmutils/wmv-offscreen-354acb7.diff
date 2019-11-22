@@ -1,0 +1,37 @@
+diff --git a/wmv.c b/wmv.c
+index cc6fc89..a7e5248 100644
+--- a/wmv.c
++++ b/wmv.c
+@@ -30,7 +30,6 @@ static void
+ move(xcb_window_t win, int mode, int x, int y)
+ {
+ 	uint32_t values[2];
+-	int real;
+ 	xcb_get_geometry_reply_t *geom;
+ 
+ 	if (!win || win == scr->root)
+@@ -47,24 +46,6 @@ move(xcb_window_t win, int mode, int x, int y)
+ 	values[0] = x ? geom->x + x : geom->x;
+ 	values[1] = y ? geom->y + y : geom->y;
+ 
+-	if (x)
+-	{
+-		real = geom->width + (geom->border_width * 2);
+-		if (geom->x + x < 1)
+-			values[0] = 0;
+-		if (geom->x + x > scr->width_in_pixels - real)
+-			values[0] = scr->width_in_pixels - real;
+-	}
+-
+-	if (y)
+-	{
+-		real = geom->height + (geom->border_width * 2);
+-		if (geom->y + y < 1)
+-			values[1] = 0;
+-		if (geom->y + y > scr->height_in_pixels - real)
+-			values[1] = scr->height_in_pixels - real;
+-	}
+-
+ 	xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_X
+ 			| XCB_CONFIG_WINDOW_Y, values);
+ 

@@ -1,0 +1,66 @@
+diff --git a/openbox/keyboard.c b/openbox/keyboard.c
+index 29abca82..36145520 100644
+--- a/openbox/keyboard.c
++++ b/openbox/keyboard.c
+@@ -31,14 +31,12 @@
+ #include "keyboard.h"
+ #include "translate.h"
+ #include "moveresize.h"
+-#include "popup.h"
+ #include "gettext.h"
+ #include "obt/keyboard.h"
+ 
+ #include <glib.h>
+ 
+ KeyBindingTree *keyboard_firstnode = NULL;
+-static ObPopup *popup = NULL;
+ static KeyBindingTree *curpos;
+ static guint chain_timer = 0;
+ 
+@@ -81,29 +79,6 @@ static void set_curpos(KeyBindingTree *newpos)
+     grab_keys(FALSE);
+     curpos = newpos;
+     grab_keys(TRUE);
+-
+-    if (curpos != NULL) {
+-        gchar *text = NULL;
+-        GList *it;
+-        const Rect *a;
+-
+-        for (it = curpos->keylist; it; it = g_list_next(it)) {
+-            gchar *oldtext = text;
+-            if (text == NULL)
+-                text = g_strdup(it->data);
+-            else
+-                text = g_strconcat(text, " - ", it->data, NULL);
+-            g_free(oldtext);
+-        }
+-
+-        a = screen_physical_area_primary(FALSE);
+-        popup_position(popup, NorthWestGravity, a->x + 10, a->y + 10);
+-        /* 1 second delay for the popup to show */
+-        popup_delay_show(popup, 1000, text);
+-        g_free(text);
+-    } else {
+-        popup_hide(popup);
+-    }
+ }
+ 
+ void keyboard_reset_chains(gint break_chroots)
+@@ -324,8 +299,6 @@ void keyboard_rebind(void)
+ void keyboard_startup(gboolean reconfig)
+ {
+     grab_keys(TRUE);
+-    popup = popup_new();
+-    popup_set_text_align(popup, RR_JUSTIFY_CENTER);
+ }
+ 
+ void keyboard_shutdown(gboolean reconfig)
+@@ -334,7 +307,4 @@ void keyboard_shutdown(gboolean reconfig)
+ 
+     keyboard_unbind_all();
+     set_curpos(NULL);
+-
+-    popup_free(popup);
+-    popup = NULL;
+ }

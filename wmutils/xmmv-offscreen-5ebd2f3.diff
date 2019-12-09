@@ -1,0 +1,33 @@
+diff --git a/xmmv.c b/xmmv.c
+index 3c97652..7f83fa4 100644
+--- a/xmmv.c
++++ b/xmmv.c
+@@ -98,26 +98,8 @@ mmove(xcb_window_t win) {
+ 		if (!ptr)
+ 			errx(1, "could not get pointer location");
+ 
+-		values[0] = ptr->root_x + geom->width/2;
+-		values[1] = ptr->root_y + geom->height/2;
+-
+-		values[0] = (ptr->root_x + geom->width / 2
+-			> scr->width_in_pixels
+-			- (geom->border_width*2))
+-			? scr->width_in_pixels - geom->width
+-			- (geom->border_width*2)
+-			: ptr->root_x - geom->width / 2;
+-		values[1] = (ptr->root_y + geom->height / 2
+-			> scr->height_in_pixels
+-			- (geom->border_width*2))
+-			? (scr->height_in_pixels - geom->height
+-			- (geom->border_width*2))
+-			: ptr->root_y - geom->height / 2;
+-
+-		if (ptr->root_x < geom->width/2)
+-			values[0] = 0;
+-		if (ptr->root_y < geom->height/2)
+-			values[1] = 0;
++		values[0] = ptr->root_x - geom->width/2;
++		values[1] = ptr->root_y - geom->height/2;
+ 
+ 		xcb_configure_window(conn, win, XCB_CONFIG_WINDOW_X
+ 				| XCB_CONFIG_WINDOW_Y, values);
